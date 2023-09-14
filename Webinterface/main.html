@@ -1,0 +1,238 @@
+<html>
+	<head>
+		<style>
+			body{
+				font-family: verdana;
+				background-color: #000000;
+				background-image: url('./img/wallpaperflare.com_wallpaper.jpg');
+				color: #ffffff;
+				text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+			}
+			#FeedContainer{				
+				display: flex;
+				flex-direction: horizontal;
+				height: 100%;
+			}
+			#MainScreen{
+				text-align: center;
+				padding: 5px;
+				width: 100%;
+			}
+			#MainScreen img{
+				height: 100%;
+				object-fit: contain;
+				border: 1px solid;
+				background-color: rgba(0, 0, 0, 0.5);
+			}
+			
+			#MiniFeed{
+				height: 100%;
+				width: 300px;
+				overflow-y: scroll;
+			}
+			h1{			
+				position: absolute;
+				left: 50%;
+				margin: 0px;
+				text-shadow: -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 3px 3px 0 #000;
+			}
+			.Feed{
+				border: 1px solid;
+				cursor: pointer;
+				background-color: rgba(0, 0, 0, 0.5);
+				padding: 5px;
+			}
+			.FeedHighlighted{
+				padding-left: 15px;
+				background-color: rgba(255, 0, 0, 0.5);
+			}
+			.Feed h2{
+				text-align: center;
+				margin: 0px;
+				font-size: 14px;
+			}
+			.CamFeed {
+				width: 200px;
+				height: 150px;
+				object-fit: contain;
+			}
+		</style>
+		<script>			
+			const CLASSNAME_FEEDHIGHLIGHTED = "FeedHighlighted";
+			const CLASSNAME_FEED = "Feed";
+			
+			const KEY_1 = 49;
+			const KEY_9 = 57;
+			const KEY_NUMPAD_1 = 97;
+			const KEY_NUMPAD_9 = 105;
+			const KEY_ARROW_LEFT = 37;
+			const KEY_ARROW_RIGHT = 39;
+					
+		
+		
+			var refreshRateFeed = 10000;
+			var enableRefresh = true;
+
+			var feeds = [
+						["Primary","http://linktowebcamfeed/1.jpg"],
+						];
+			/*
+			var feeds = [
+						["Primary","https://www.yr.no/webcams/3/2000/0429020_1"],
+						["Secondary","https://www.yr.no/webcams/3/2000/3000272_1"],
+						["Tertiary","https://www.yr.no/webcams/3/2000/0429020_1"],
+						["Quaterniary","https://www.yr.no/webcams/3/2000/3000272_1"],
+						["Quinary","https://www.yr.no/webcams/3/2000/0429020_1"],
+						["Senary","https://www.yr.no/webcams/3/2000/3000272_1"],
+						];
+				*/
+				
+			var miniFeedTemplate = "<div onclick=\"setAsMainS(this.dataset.feed)\" class=\"Feed\" data-feed=\"%feed%\"><h2>%title%</h2><img class=\"CamFeed\" src=\"%uri%\"/></div>";
+			var mainFeedTemplate = "<h1>%title%</h1><img src=\"%uri%\"/>";
+			function init(){
+				if(!validateSettings()){
+					alert("Unable to start");
+					return;
+				}
+				
+				feeds.forEach(addFeed);
+				
+				setAsMain(feeds[0]);
+				if(enableRefresh){
+					setTimeout(miniFeedRefreshLoop, refreshRateFeed);
+				}	
+
+				document.body.addEventListener("keydown", keyDownEvent);
+			}
+			
+			function validateSettings(){
+				if(feeds.length <= 0){
+					alert("No feeds defined");
+					return false;
+				}
+				if(hasDuplicateFeedNames()){
+					return false;
+				}
+			
+				return true;
+			}
+			
+			function hasDuplicateFeedNames(){
+				for(var i = 0 ; i < feeds.length ;i++){
+					for(var j = i+1 ; j < feeds.length ;j++){
+						if(feeds[i][0] == feeds[j][0]){
+							alert("Duplicate feedname found: " + feeds[i][0]);
+							return true;
+						}
+					}
+				}
+			}
+
+			function addFeed(item){
+				console.log("Adding feed " + item);
+				var miniFeedDiv = document.getElementById("MiniFeed");
+				miniFeedDiv.innerHTML += replaceTemplateWithFeed(miniFeedTemplate, item);
+				
+			}
+			
+			function setAsMainIndex(index){
+				if(index >= feeds.length){
+					return;
+				}			
+				setAsMain(feeds[index]);
+			}
+			
+			function setAsMainS(item){
+				setAsMain(item.split(','));
+			}
+			
+			function setAsMain(item){
+				var mainFeedDiv = document.getElementById("MainScreen");
+				mainFeedDiv.innerHTML = replaceTemplateWithFeed(mainFeedTemplate, item);
+				highlightFeed(item);
+			}
+			
+			function highlightFeed(item){
+				unhighlightAllFeeds();
+				var allFeeds = Array.from(document.getElementsByClassName(CLASSNAME_FEED));
+				allFeeds.forEach((element) => { 
+					if(element.dataset.feed.split(',')[0] == item[0]){
+						element.classList.add(CLASSNAME_FEEDHIGHLIGHTED);
+						return;
+					}
+				});
+				
+				console.log("Trying to highlight non-existing feed: " + item);
+			}
+			
+			function unhighlightAllFeeds(){
+				var highlightedFeeds = Array.from(document.getElementsByClassName(CLASSNAME_FEEDHIGHLIGHTED));
+				highlightedFeeds.forEach((element) => element.classList.remove(CLASSNAME_FEEDHIGHLIGHTED));
+			}
+			
+			function replaceTemplateWithFeed(template, item){
+				return template
+					.ReplaceAll("%uri%", item[1])
+					.ReplaceAll("%feed%", item)
+					.ReplaceAll("%title%", item[0]);
+			}
+			
+			
+			function miniFeedRefreshLoop(){
+				console.log("Refreshing all feeds");
+				feeds.forEach(reloadFeed);			
+				setTimeout(miniFeedRefreshLoop, refreshRateFeed);
+			}
+			
+			function reloadFeed(feed){
+				reloadImg(feed[1]);
+			}
+			
+			async function reloadImg(url) {
+				await fetch(url, { cache: 'reload', mode: 'no-cors' });
+				document.body.querySelectorAll(`img[src='${url}']`).forEach(img => img.src = url);
+			}	
+			
+			function keyDownEvent(event){
+				var keyCode = event.keyCode;
+				console.log("Key pressed: " + keyCode);
+				if(keyCode >= KEY_1 && keyCode <= KEY_9){
+					var index = keyCode - KEY_1;
+					setAsMainIndex(index);
+				}
+				if(keyCode >= KEY_NUMPAD_1 && keyCode <= KEY_NUMPAD_9){
+					var index = keyCode - KEY_NUMPAD_1;
+					setAsMainIndex(index);
+				}
+				
+				if(keyCode == KEY_ARROW_LEFT){
+					highlightPrevious();
+				}
+				if(keyCode == KEY_ARROW_RIGHT){
+					highlightNext();
+				}
+				
+			}
+			
+			function highlightNext(){
+				console.log("Not implemented");
+			}
+			function highlightPrevious(){
+				console.log("Not implemented");
+			}	
+			
+			String.prototype.ReplaceAll = function ReplaceAll(find, replace) {
+				return this.replace(find, replace);
+			};
+			
+		</script>
+	</head>
+	<body onload="init()">
+		<div id="FeedContainer">
+		<div id="MiniFeed">
+		</div>
+		<div id="MainScreen">
+		</div>	
+		</div>
+	</body>
+</html>
